@@ -1,0 +1,21 @@
+====================================================
+INFORMATIONS AVANT L'INSTALLATION
+====================================================
+
+Bienvenue dans l'assistant d'installation de Jessna Conv m3u8.
+
+----------------------------------------------------
+PRÉREQUIS IMPORTANT
+----------------------------------------------------
+Pour que cette application fonctionne correctement, l'outil "yt-dlp" doit être installé sur votre système et accessible depuis le PATH.
+
+Si vous ne l'avez pas, l'application affichera une erreur. Vous pouvez l'installer en suivant les instructions sur le site officiel de yt-dlp.
+
+----------------------------------------------------
+PROCESSUS D'INSTALLATION
+----------------------------------------------------
+Cet assistant va :
+- Copier les fichiers de l'application dans le dossier Program Files.
+- Créer des raccourcis dans le Menu Démarrer et sur le Bureau.
+
+Cliquez sur "Suivant" pour commencer l'installation.
