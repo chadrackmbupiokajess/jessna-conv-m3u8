@@ -102,10 +102,25 @@ SPEC_TEMPLATE = """# -*- mode: python ; coding: utf-8 -*-
 # Fichier généré par build.py — ne pas modifier à la main.
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 from kivy_deps import sdl2, glew, angle
-from kivy.tools.packaging.pyinstaller_hooks import hookspath, runtime_hooks
+from kivy.tools.packaging.pyinstaller_hooks import get_deps_all, hookspath, runtime_hooks
 
 kivymd_datas = collect_data_files('kivymd')
 kivymd_modules = collect_submodules('kivymd')
+
+# Kivy charge ses « providers » (images, presse-papiers, texte, fenêtre...) par leur nom
+# pendant l'exécution : PyInstaller ne les voit pas tout seul, on les ajoute nous-mêmes.
+kivy_deps = get_deps_all()
+kivy_providers = [
+    'kivy.core.window.window_sdl2',
+    'kivy.core.text.text_sdl2', 'kivy.core.text.text_pil',
+    'kivy.core.image.img_tex', 'kivy.core.image.img_dds',
+    'kivy.core.image.img_sdl2', 'kivy.core.image.img_pil',
+    'kivy.core.clipboard.clipboard_winctypes', 'kivy.core.clipboard.clipboard_sdl2',
+    'kivy.core.clipboard.clipboard_dummy',
+    'kivy.core.audio.audio_sdl2',
+    'kivy.core.spelling.spelling_enchant',
+    'win32timezone',
+]
 
 a = Analysis(
     ['{main}'],
@@ -120,10 +135,11 @@ a = Analysis(
         ('{win_icon}', '.'),
         ('{splash}', '.'),
     ] + kivymd_datas,
-    hiddenimports=kivymd_modules + ['kivymd.icon_definitions.md_icons'],
+    hiddenimports=kivy_deps['hiddenimports'] + kivy_providers + kivymd_modules
+                  + ['kivymd.icon_definitions.md_icons'],
     hookspath=hookspath(),
     runtime_hooks=runtime_hooks(),
-    excludes=[],
+    excludes=kivy_deps['excludes'],
     noarchive=False,
 )
 
