@@ -5,19 +5,49 @@ import subprocess
 import threading
 from tkinter import filedialog, Tk
 
-# Taille de fenêtre (à définir avant de créer la fenêtre Kivy)
+import webbrowser
+
+
+def _screen_work_area():
+    """Zone utile de l'écran (sans la barre des tâches) sous Windows."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        rect = wintypes.RECT()
+        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0)
+        return rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
+    except Exception:
+        return 0, 0, 1366, 728
+
+
+# Taille et position de la fenêtre, calculées pour tenir dans l'écran
+# (la barre de titre avec Réduire / Agrandir / Fermer reste visible).
 from kivy.config import Config
-Config.set("graphics", "width", "860")
-Config.set("graphics", "height", "760")
-Config.set("graphics", "minimum_width", "720")
-Config.set("graphics", "minimum_height", "700")
+_wa_left, _wa_top, _wa_w, _wa_h = _screen_work_area()
+_WIN_W = min(860, _wa_w - 40)
+_WIN_H = min(660, _wa_h - 90)
+Config.set("graphics", "width", str(_WIN_W))
+Config.set("graphics", "height", str(_WIN_H))
+Config.set("graphics", "minimum_width", "680")
+Config.set("graphics", "minimum_height", str(min(600, _WIN_H)))
+Config.set("graphics", "position", "custom")
+Config.set("graphics", "left", str(_wa_left + max(0, (_wa_w - _WIN_W) // 2)))
+Config.set("graphics", "top", str(_wa_top + max(40, (_wa_h - _WIN_H) // 2)))
+
+# Icône de la fenêtre (barre de titre) : le logo Jessna Convert au lieu de celui de Kivy
+_BASE_DIR = getattr(sys, "_MEIPASS", os.path.abspath("."))
+_WINDOW_ICON = os.path.join(_BASE_DIR, "logo_jessna_convert_icon.png")
+if os.path.exists(_WINDOW_ICON):
+    Config.set("kivy", "window_icon", _WINDOW_ICON)
 
 # KivyMD imports (version 1.2.0)
 from kivy.lang import Builder
 from kivy.clock import mainthread, Clock
 from kivy.core.clipboard import Clipboard
-from kivy.properties import StringProperty, ListProperty
+from kivy.properties import StringProperty, ListProperty, DictProperty
 from kivy.utils import get_color_from_hex
+from kivy.metrics import dp
+from kivy.core.window import Window
 from kivymd.app import MDApp
 from kivymd.uix.list import OneLineListItem  # noqa: F401  (utilisé par le menu)
 from kivymd.uix.menu import MDDropdownMenu
@@ -36,6 +66,20 @@ MUTED = "#8C919B"
 WHITE = "#FFFFFF"
 GREEN = "#22C55E"
 AMBER = "#F59E0B"
+
+APP_VERSION = "1.0"
+
+DEVELOPER = {
+    "name": "Chadrack Mbu Jess",
+    "role": "Fondateur & CEO de l'écosystème Jessna Tech",
+    "title": "Développeur Full Stack",
+    "phone": "+243 891 433 419",
+    "phone_url": "tel:+243891433419",
+    "email": "chadrackmbujess@gmail.com",
+    "email_url": "mailto:chadrackmbujess@gmail.com",
+    "site": "chadrackmbu.pythonanywhere.com",
+    "site_url": "https://chadrackmbu.pythonanywhere.com",
+}
 
 STATUS_STYLES = {
     "info": ("information-outline", MUTED),
@@ -175,209 +219,457 @@ KV = """
     md_bg_color: hex("#17171B")
     line_color: hex("#2B2B31")
 
-MDScreen:
-    md_bg_color: hex("#0E0E11")
+<ContactRow@MDCard>:
+    icon: ""
+    text: ""
+    url: ""
+    size_hint_y: None
+    height: "48dp"
+    padding: ["14dp", 0, "14dp", 0]
+    spacing: "12dp"
+    radius: [12, 12, 12, 12]
+    elevation: 0
+    md_bg_color: hex("#1F1F25")
+    ripple_behavior: True
+    on_release: app.open_link(self.url)
+    MDIcon:
+        icon: root.icon
+        theme_text_color: "Custom"
+        text_color: hex("#E5202E")
+        font_size: "20sp"
+        adaptive_size: True
+        pos_hint: {"center_y": 0.5}
+    MDLabel:
+        text: root.text
+        theme_text_color: "Custom"
+        text_color: hex("#FFFFFF")
+    MDIcon:
+        icon: "open-in-new"
+        theme_text_color: "Custom"
+        text_color: hex("#5E626B")
+        font_size: "16sp"
+        adaptive_size: True
+        pos_hint: {"center_y": 0.5}
 
-    MDBoxLayout:
-        orientation: "vertical"
-        padding: ["32dp", "28dp", "32dp", "20dp"]
-        spacing: "18dp"
+<EcoChip@MDCard>:
+    text: ""
+    icon: "circle-medium"
+    size_hint_y: None
+    height: "44dp"
+    padding: ["12dp", 0, "12dp", 0]
+    spacing: "8dp"
+    radius: [22, 22, 22, 22]
+    elevation: 0
+    md_bg_color: hex("#1F1F25")
+    line_color: hex("#2B2B31")
+    MDIcon:
+        icon: root.icon
+        theme_text_color: "Custom"
+        text_color: hex("#E5202E")
+        font_size: "18sp"
+        adaptive_size: True
+        pos_hint: {"center_y": 0.5}
+    MDLabel:
+        text: root.text
+        theme_text_color: "Custom"
+        text_color: hex("#C9CED6")
+        font_style: "Body2"
 
-        # ---------- En-tête ----------
+MDScreenManager:
+
+    # =====================  PAGE D'ACCUEIL  =====================
+    MDScreen:
+        name: "home"
+        md_bg_color: hex("#0E0E11")
+
         MDBoxLayout:
-            size_hint_y: None
-            height: "64dp"
-            spacing: "16dp"
+            orientation: "vertical"
+            padding: ["28dp", "16dp", "28dp", "12dp"]
+            spacing: "12dp"
 
-            Image:
-                source: app.logo_path
-                size_hint: None, None
-                size: "64dp", "64dp"
-                allow_stretch: True
-                keep_ratio: True
+            # ---------- En-tête ----------
+            MDBoxLayout:
+                size_hint_y: None
+                height: "56dp"
+                spacing: "14dp"
+
+                Image:
+                    source: app.logo_path
+                    size_hint: None, None
+                    size: "56dp", "56dp"
+                    fit_mode: "contain"
+                    pos_hint: {"center_y": 0.5}
+
+                MDBoxLayout:
+                    orientation: "vertical"
+                    spacing: "2dp"
+                    padding: [0, "4dp", 0, "4dp"]
+
+                    MDBoxLayout:
+                        spacing: "10dp"
+                        size_hint_y: None
+                        height: "30dp"
+
+                        MDLabel:
+                            text: "[b]Jessna[/b] Convert"
+                            markup: True
+                            font_style: "H5"
+                            theme_text_color: "Custom"
+                            text_color: hex("#FFFFFF")
+                            adaptive_width: True
+
+                        MDCard:
+                            size_hint: None, None
+                            size: "62dp", "24dp"
+                            radius: [6, 6, 6, 6]
+                            elevation: 0
+                            md_bg_color: hex("#E5202E")
+                            pos_hint: {"center_y": 0.5}
+                            MDLabel:
+                                text: "[b]M3U8[/b]"
+                                markup: True
+                                halign: "center"
+                                font_size: "12sp"
+                                theme_text_color: "Custom"
+                                text_color: hex("#FFFFFF")
+
+                        Widget:
+
+                    MDLabel:
+                        text: "Vos vidéos YouTube en flux m3u8, en un clic."
+                        font_style: "Body2"
+                        theme_text_color: "Custom"
+                        text_color: hex("#8C919B")
+
+                MDIconButton:
+                    id: menu_button
+                    icon: "dots-vertical"
+                    theme_icon_color: "Custom"
+                    icon_color: hex("#C9CED6")
+                    pos_hint: {"center_y": 0.5}
+                    on_release: app.open_main_menu()
+
+            # ---------- Carte : source ----------
+            JCard:
+                padding: "20dp"
+                spacing: "10dp"
+
+                FieldLabel:
+                    text: "VIDÉO SOURCE"
+
+                JField:
+                    id: video_url
+                    hint_text: "Collez le lien YouTube (vidéo ou direct)"
+                    icon_left: "youtube"
+
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: "12dp"
+
+                    JField:
+                        id: quality
+                        hint_text: "Qualité"
+                        text: "720p"
+                        readonly: True
+                        icon_right: "chevron-down"
+                        size_hint_x: 0.34
+                        on_focus: if self.focus: app.open_quality_menu()
+
+                    JField:
+                        id: cookies_path
+                        hint_text: "Cookies (fichier .txt ou firefox)"
+                        text: "cookies.txt"
+                        icon_left: "cookie-outline"
+                        size_hint_x: 0.66
+
+                    MDIconButton:
+                        icon: "folder-open-outline"
+                        theme_icon_color: "Custom"
+                        icon_color: hex("#C9CED6")
+                        md_bg_color: hex("#1F1F25")
+                        pos_hint: {"center_y": 0.5}
+                        on_release: app.browse_cookies()
+
+                MDFillRoundFlatIconButton:
+                    id: generate_button
+                    text: "GÉNÉRER LE LIEN M3U8"
+                    icon: "play-circle-outline"
+                    size_hint_x: 1
+                    font_size: "16sp"
+                    padding: ["16dp", "14dp", "16dp", "14dp"]
+                    md_bg_color: hex("#E5202E")
+                    theme_text_color: "Custom"
+                    text_color: hex("#FFFFFF")
+                    theme_icon_color: "Custom"
+                    icon_color: hex("#FFFFFF")
+                    on_release: app.start_link_generation()
+
+            # ---------- Carte : résultat ----------
+            JCard:
+                padding: "20dp"
+                spacing: "10dp"
+
+                FieldLabel:
+                    text: "LIEN M3U8"
+
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: "12dp"
+
+                    JField:
+                        id: output_link
+                        hint_text: "Le lien apparaîtra ici"
+                        readonly: True
+                        icon_left: "link-variant"
+
+                    MDFillRoundFlatIconButton:
+                        text: "COPIER"
+                        icon: "content-copy"
+                        font_size: "15sp"
+                        padding: ["16dp", "12dp", "16dp", "12dp"]
+                        pos_hint: {"center_y": 0.5}
+                        md_bg_color: hex("#1F1F25")
+                        theme_text_color: "Custom"
+                        text_color: hex("#FFFFFF")
+                        theme_icon_color: "Custom"
+                        icon_color: hex("#C9CED6")
+                        on_release: app.copy_to_clipboard()
+
+            # ---------- Statut ----------
+            MDBoxLayout:
+                adaptive_size: True
+                spacing: "8dp"
+                pos_hint: {"center_x": 0.5}
+
+                MDBoxLayout:
+                    id: spinner_box
+                    size_hint: None, None
+                    size: 0, "22dp"
+                    opacity: 0
+                    pos_hint: {"center_y": 0.5}
+                    MDSpinner:
+                        id: spinner
+                        size_hint: None, None
+                        size: "20dp", "20dp"
+                        pos_hint: {"center_y": 0.5}
+                        color: hex("#E5202E")
+                        line_width: 2
+                        active: False
+
+                MDIcon:
+                    id: status_icon
+                    icon: app.status_icon
+                    theme_text_color: "Custom"
+                    text_color: app.status_color
+                    font_size: "20sp"
+                    adaptive_size: True
+                    pos_hint: {"center_y": 0.5}
+
+                MDLabel:
+                    id: status_label
+                    text: "Prêt"
+                    theme_text_color: "Custom"
+                    text_color: app.status_color
+                    adaptive_size: True
+                    pos_hint: {"center_y": 0.5}
+
+            Widget:
+
+            MDLabel:
+                text: "Jessna Tech  ·  Jessna Convert m3u8"
+                halign: "center"
+                font_style: "Caption"
+                theme_text_color: "Custom"
+                text_color: hex("#5E626B")
+                size_hint_y: None
+                height: "18dp"
+
+    # =====================  PAGE À PROPOS  =====================
+    MDScreen:
+        name: "about"
+        md_bg_color: hex("#0E0E11")
+
+        MDScrollView:
+            do_scroll_x: False
+            bar_width: "4dp"
 
             MDBoxLayout:
                 orientation: "vertical"
-                spacing: "4dp"
-                padding: [0, "6dp", 0, "6dp"]
-
-                MDBoxLayout:
-                    spacing: "10dp"
-                    size_hint_y: None
-                    height: "30dp"
-
-                    MDLabel:
-                        text: "[b]Jessna[/b] Convert"
-                        markup: True
-                        font_style: "H5"
-                        theme_text_color: "Custom"
-                        text_color: hex("#FFFFFF")
-                        adaptive_width: True
-
-                    MDCard:
-                        size_hint: None, None
-                        size: "62dp", "24dp"
-                        radius: [6, 6, 6, 6]
-                        elevation: 0
-                        md_bg_color: hex("#E5202E")
-                        pos_hint: {"center_y": 0.5}
-                        MDLabel:
-                            text: "[b]M3U8[/b]"
-                            markup: True
-                            halign: "center"
-                            font_size: "12sp"
-                            theme_text_color: "Custom"
-                            text_color: hex("#FFFFFF")
-
-                    Widget:
-
-                MDLabel:
-                    text: "Vos vidéos YouTube en flux m3u8, en un clic."
-                    font_style: "Body2"
-                    theme_text_color: "Custom"
-                    text_color: hex("#8C919B")
-
-        # ---------- Carte : source ----------
-        JCard:
-            FieldLabel:
-                text: "VIDÉO SOURCE"
-
-            JField:
-                id: video_url
-                hint_text: "Collez le lien YouTube (vidéo ou direct)"
-                icon_left: "youtube"
-
-            MDBoxLayout:
                 size_hint_y: None
                 height: self.minimum_height
-                spacing: "12dp"
+                padding: ["28dp", "16dp", "28dp", "20dp"]
+                spacing: "16dp"
 
-                JField:
-                    id: quality
-                    hint_text: "Qualité"
-                    text: "720p"
-                    readonly: True
-                    icon_right: "chevron-down"
-                    size_hint_x: 0.34
-                    on_focus: if self.focus: app.open_quality_menu()
+                # ---------- Barre du haut ----------
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: "48dp"
+                    spacing: "8dp"
 
-                JField:
-                    id: cookies_path
-                    hint_text: "Cookies (fichier .txt ou firefox)"
-                    text: "cookies.txt"
-                    icon_left: "cookie-outline"
-                    size_hint_x: 0.66
+                    MDIconButton:
+                        icon: "arrow-left"
+                        theme_icon_color: "Custom"
+                        icon_color: hex("#FFFFFF")
+                        pos_hint: {"center_y": 0.5}
+                        on_release: app.go_home()
 
-                MDIconButton:
-                    icon: "folder-open-outline"
-                    theme_icon_color: "Custom"
-                    icon_color: hex("#C9CED6")
-                    md_bg_color: hex("#1F1F25")
-                    pos_hint: {"center_y": 0.5}
-                    on_release: app.browse_cookies()
+                    MDLabel:
+                        text: "À propos"
+                        font_style: "H6"
+                        theme_text_color: "Custom"
+                        text_color: hex("#FFFFFF")
 
-            Widget:
-                size_hint_y: None
-                height: "2dp"
+                # ---------- L'application ----------
+                JCard:
+                    spacing: "8dp"
 
-            MDFillRoundFlatIconButton:
-                id: generate_button
-                text: "GÉNÉRER LE LIEN M3U8"
-                icon: "play-circle-outline"
-                size_hint_x: 1
-                font_size: "16sp"
-                padding: ["16dp", "16dp", "16dp", "16dp"]
-                md_bg_color: hex("#E5202E")
-                theme_text_color: "Custom"
-                text_color: hex("#FFFFFF")
-                theme_icon_color: "Custom"
-                icon_color: hex("#FFFFFF")
-                on_release: app.start_link_generation()
+                    Image:
+                        source: app.logo_path
+                        size_hint: None, None
+                        size: "88dp", "88dp"
+                        fit_mode: "contain"
+                        pos_hint: {"center_x": 0.5}
 
-            MDBoxLayout:
-                id: spinner_box
-                size_hint_y: None
-                height: 0
-                opacity: 0
-                MDSpinner:
-                    id: spinner
-                    size_hint: None, None
-                    size: "28dp", "28dp"
-                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
-                    color: hex("#E5202E")
-                    line_width: 2.5
-                    active: False
+                    MDLabel:
+                        text: "[b]Jessna[/b] Convert m3u8"
+                        markup: True
+                        font_style: "H5"
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: hex("#FFFFFF")
+                        adaptive_height: True
 
-        # ---------- Carte : résultat ----------
-        JCard:
-            FieldLabel:
-                text: "LIEN M3U8"
+                    MDLabel:
+                        text: "Version " + app.app_version
+                        font_style: "Caption"
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: hex("#8C919B")
+                        adaptive_height: True
 
-            JField:
-                id: output_link
-                hint_text: "Le lien apparaîtra ici"
-                readonly: True
-                icon_left: "link-variant"
+                    MDLabel:
+                        text: "Transformez n'importe quelle vidéo ou direct YouTube en lien m3u8 (HLS) prêt à diffuser sur vos lecteurs, TV et plateformes de streaming."
+                        font_style: "Body2"
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: hex("#C9CED6")
+                        adaptive_height: True
 
-            MDFillRoundFlatIconButton:
-                text: "COPIER LE LIEN"
-                icon: "content-copy"
-                size_hint_x: 1
-                font_size: "15sp"
-                padding: ["16dp", "14dp", "16dp", "14dp"]
-                md_bg_color: hex("#1F1F25")
-                theme_text_color: "Custom"
-                text_color: hex("#FFFFFF")
-                theme_icon_color: "Custom"
-                icon_color: hex("#C9CED6")
-                on_release: app.copy_to_clipboard()
+                # ---------- Le concepteur ----------
+                JCard:
+                    FieldLabel:
+                        text: "CONÇU ET DÉVELOPPÉ PAR"
 
-        # ---------- Statut ----------
-        MDBoxLayout:
-            adaptive_size: True
-            spacing: "8dp"
-            pos_hint: {"center_x": 0.5}
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: "64dp"
+                        spacing: "16dp"
 
-            MDIcon:
-                id: status_icon
-                icon: app.status_icon
-                theme_text_color: "Custom"
-                text_color: app.status_color
-                font_size: "20sp"
-                adaptive_size: True
-                pos_hint: {"center_y": 0.5}
+                        MDCard:
+                            size_hint: None, None
+                            size: "60dp", "60dp"
+                            radius: [30, 30, 30, 30]
+                            elevation: 0
+                            md_bg_color: hex("#E5202E")
+                            pos_hint: {"center_y": 0.5}
+                            MDLabel:
+                                text: "[b]CMJ[/b]"
+                                markup: True
+                                halign: "center"
+                                font_size: "18sp"
+                                theme_text_color: "Custom"
+                                text_color: hex("#FFFFFF")
 
-            MDLabel:
-                id: status_label
-                text: "Prêt"
-                theme_text_color: "Custom"
-                text_color: app.status_color
-                adaptive_size: True
-                pos_hint: {"center_y": 0.5}
+                        MDBoxLayout:
+                            orientation: "vertical"
+                            spacing: "2dp"
 
-        Widget:
+                            MDLabel:
+                                text: "[b]" + app.developer["name"] + "[/b]"
+                                markup: True
+                                font_style: "H6"
+                                theme_text_color: "Custom"
+                                text_color: hex("#FFFFFF")
 
-        MDLabel:
-            text: "Jessna TechLearn  ·  Jessna Convert m3u8"
-            halign: "center"
-            font_style: "Caption"
-            theme_text_color: "Custom"
-            text_color: hex("#5E626B")
-            size_hint_y: None
-            height: "18dp"
+                            MDLabel:
+                                text: app.developer["role"]
+                                font_style: "Body2"
+                                theme_text_color: "Custom"
+                                text_color: hex("#FF5A63")
+
+                            MDLabel:
+                                text: app.developer["title"]
+                                font_style: "Body2"
+                                theme_text_color: "Custom"
+                                text_color: hex("#8C919B")
+
+                    ContactRow:
+                        icon: "phone"
+                        text: app.developer["phone"]
+                        url: app.developer["phone_url"]
+
+                    ContactRow:
+                        icon: "email-outline"
+                        text: app.developer["email"]
+                        url: app.developer["email_url"]
+
+                    ContactRow:
+                        icon: "web"
+                        text: app.developer["site"]
+                        url: app.developer["site_url"]
+
+                # ---------- L'écosystème ----------
+                JCard:
+                    FieldLabel:
+                        text: "L'ÉCOSYSTÈME JESSNA TECH"
+
+                    MDGridLayout:
+                        cols: 2
+                        adaptive_height: True
+                        spacing: "10dp"
+
+                        EcoChip:
+                            icon: "movie-open-play"
+                            text: "Jessna CinéHub"
+
+                        EcoChip:
+                            icon: "school-outline"
+                            text: "Jessna TechLearn"
+
+                        EcoChip:
+                            icon: "remote-desktop"
+                            text: "Jessna Remote"
+
+                        EcoChip:
+                            icon: "swap-horizontal-circle-outline"
+                            text: "Jessna Convert m3u8"
+
+                MDLabel:
+                    text: "© 2026 Jessna Tech  ·  Tous droits réservés"
+                    halign: "center"
+                    font_style: "Caption"
+                    theme_text_color: "Custom"
+                    text_color: hex("#5E626B")
+                    size_hint_y: None
+                    height: "18dp"
 """
 
 
 class MainApp(MDApp):
     status_icon = StringProperty("information-outline")
     status_color = ListProperty([0.55, 0.57, 0.61, 1])
+    app_version = StringProperty(APP_VERSION)
+    developer = DictProperty(DEVELOPER)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.quality_menu = None
+        self.main_menu = None
         self.dialog = None
         self.logo_path = resource_path("logo_jessna_convert.png")
-        self.icon_path = resource_path("logo_jessna_convert.ico")
+        self.icon_path = resource_path("logo_jessna_convert_icon.png")
 
     def build(self):
         self.title = "Jessna Convert m3u8"
@@ -388,6 +680,15 @@ class MainApp(MDApp):
         return Builder.load_string(KV)
 
     def on_start(self):
+        # Ferme l'écran de démarrage de l'exe (PyInstaller) dès que l'appli est prête
+        try:
+            import pyi_splash
+            pyi_splash.close()
+        except Exception:
+            pass
+        # Force le logo dans la barre de titre (au cas où Kivy garde le sien)
+        if os.path.exists(self.icon_path):
+            Window.set_icon(self.icon_path)
         qualities = ["1080p", "720p", "480p"]
         menu_items = [
             {
@@ -403,6 +704,37 @@ class MainApp(MDApp):
             width_mult=3,
             background_color=get_color_from_hex(SURFACE_2),
         )
+
+    def open_main_menu(self):
+        if not self.main_menu:
+            self.main_menu = MDDropdownMenu(
+                caller=self.root.ids.menu_button,
+                items=[
+                    {"viewclass": "OneLineListItem", "text": "À propos", "height": 52,
+                     "on_release": lambda: self._menu_action("about")},
+                    {"viewclass": "OneLineListItem", "text": "Quitter", "height": 52,
+                     "on_release": lambda: self._menu_action("quit")},
+                ],
+                width_mult=3,
+                background_color=get_color_from_hex(SURFACE_2),
+            )
+        self.main_menu.open()
+
+    def _menu_action(self, action):
+        self.main_menu.dismiss()
+        if action == "about":
+            self.root.transition.direction = "left"
+            self.root.current = "about"
+        elif action == "quit":
+            self.stop()
+
+    def go_home(self):
+        self.root.transition.direction = "right"
+        self.root.current = "home"
+
+    def open_link(self, url):
+        if url:
+            webbrowser.open(url)
 
     def open_quality_menu(self):
         self.quality_menu.open()
@@ -456,13 +788,15 @@ class MainApp(MDApp):
         ids.cookies_path.disabled = disabled
 
         if disabled:
-            ids.spinner_box.height = "32dp"
+            ids.spinner_box.width = dp(22)
             ids.spinner_box.opacity = 1
             ids.spinner.active = True
+            ids.status_icon.opacity = 0
         else:
             ids.spinner.active = False
-            ids.spinner_box.height = 0
+            ids.spinner_box.width = 0
             ids.spinner_box.opacity = 0
+            ids.status_icon.opacity = 1
 
     @mainthread
     def show_error_dialog(self, title, text):

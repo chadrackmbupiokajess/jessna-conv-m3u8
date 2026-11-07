@@ -1,77 +1,189 @@
+"""
+Build de Jessna Convert m3u8 en UN SEUL .exe autonome.
+
+L'exe contient tout ce qu'il faut pour fonctionner sur un autre PC Windows,
+sans rien installer :
+  - Python, Kivy, KivyMD (et leurs DLL SDL2 / GLEW / ANGLE)
+  - yt-dlp.exe  (version officielle, avec le solveur EJS intégré)
+  - deno.exe    (moteur JavaScript exigé par YouTube)
+  - le logo, l'icône et l'écran de démarrage
+
+Utilisation :  python build.py
+"""
 import os
 import shutil
-from pathlib import Path
+import subprocess
+import sys
+import urllib.request
+import zipfile
 
 # --- Configuration ---
 APP_NAME = "Jessna_Conv_m3u8"
 MAIN_SCRIPT = "app_ui.py"
 ICON_FILE = "logo_jessna_convert.ico"
 LOGO_FILE = "logo_jessna_convert.png"
-SPLASH_FILE = "splash_jessna_convert.png"  # ton image d’écran de chargement (tu peux la créer)
+WINDOW_ICON_FILE = "logo_jessna_convert_icon.png"
+SPLASH_FILE = "splash_jessna_convert.png"
 
-# --- Nettoyage des anciens builds ---
-print("--- Nettoyage des anciens builds ---")
-shutil.rmtree("build", ignore_errors=True)
-shutil.rmtree("dist", ignore_errors=True)
-if os.path.exists(f"{APP_NAME}.spec"):
-    os.remove(f"{APP_NAME}.spec")
+BIN_DIR = "bin"  # outils externes embarqués dans l'exe
+YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+DENO_URL = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
 
-# --- Création du contenu du fichier SPEC ---
-spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files
 
-# Inclure tous les fichiers nécessaires de KivyMD
+def download(url, dest):
+    print(f"    téléchargement : {url}")
+    req = urllib.request.Request(url, headers={"User-Agent": "JessnaConvert-build"})
+    with urllib.request.urlopen(req) as r, open(dest, "wb") as f:
+        shutil.copyfileobj(r, f)
+
+
+def installed_tool(name, min_size_mb):
+    """
+    Renvoie le chemin d'un outil déjà installé sur ce PC s'il est AUTONOME.
+    Un yt-dlp installé avec pip n'est qu'un petit lanceur (~100 Ko) qui a besoin
+    de Python : il ne marcherait pas sur un autre PC, on l'ignore.
+    """
+    path = shutil.which(name)
+    if path and os.path.getsize(path) >= min_size_mb * 1024 * 1024:
+        return path
+    return None
+
+
+def prepare_tools(force_update):
+    """
+    Met yt-dlp.exe et deno.exe dans bin/ pour les embarquer dans l'exe.
+    1. Réutilise ceux déjà installés sur ce PC (s'ils sont autonomes),
+    2. sinon les télécharge (une seule fois).
+    --update : force le téléchargement des dernières versions.
+    """
+    os.makedirs(BIN_DIR, exist_ok=True)
+
+    ytdlp = os.path.join(BIN_DIR, "yt-dlp.exe")
+    if force_update or not os.path.exists(ytdlp):
+        print("--- yt-dlp.exe ---")
+        local = None if force_update else installed_tool("yt-dlp", 5)
+        if local:
+            print(f"    copie de la version installée : {local}")
+            shutil.copy2(local, ytdlp)
+        else:
+            download(YTDLP_URL, ytdlp)
+    else:
+        print("--- yt-dlp.exe déjà dans bin/ (python build.py --update pour le mettre à jour) ---")
+
+    deno = os.path.join(BIN_DIR, "deno.exe")
+    if force_update or not os.path.exists(deno):
+        print("--- deno.exe ---")
+        local = None if force_update else installed_tool("deno", 20)
+        if local:
+            print(f"    copie de la version installée : {local}")
+            shutil.copy2(local, deno)
+        else:
+            zip_path = os.path.join(BIN_DIR, "deno.zip")
+            download(DENO_URL, zip_path)
+            with zipfile.ZipFile(zip_path) as z:
+                z.extract("deno.exe", BIN_DIR)
+            os.remove(zip_path)
+    else:
+        print("--- deno.exe déjà dans bin/ ---")
+
+    # Vérification rapide
+    for exe, arg in ((ytdlp, "--version"), (deno, "--version")):
+        out = subprocess.run([exe, arg], capture_output=True, text=True).stdout.strip().splitlines()
+        print(f"    {os.path.basename(exe)} : {out[0] if out else '???'}")
+
+
+def check_files():
+    missing = [f for f in (MAIN_SCRIPT, ICON_FILE, LOGO_FILE, WINDOW_ICON_FILE, SPLASH_FILE) if not os.path.exists(f)]
+    if missing:
+        sys.exit(f"Fichiers manquants : {', '.join(missing)}")
+
+
+SPEC_TEMPLATE = """# -*- mode: python ; coding: utf-8 -*-
+# Fichier généré par build.py — ne pas modifier à la main.
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from kivy_deps import sdl2, glew, angle
+from kivy.tools.packaging.pyinstaller_hooks import hookspath, runtime_hooks
+
 kivymd_datas = collect_data_files('kivymd')
+kivymd_modules = collect_submodules('kivymd')
 
 a = Analysis(
-    ['{MAIN_SCRIPT}'],
+    ['{main}'],
     pathex=[],
-    binaries=[],
-    datas=[
-        ('{LOGO_FILE}', '.'),   # Logo intégré
-        ('{ICON_FILE}', '.'),   # Icône intégrée
-        ('logo_jessna_convert_icon.png', '.'),  # Icône de la fenêtre
-        ('{SPLASH_FILE}', '.'), # Splash intégré
-    ] + kivymd_datas,
-    hiddenimports=[
-        'kivymd.icon_definitions.md_icons',  # module souvent manquant
+    binaries=[
+        ('{bin}/yt-dlp.exe', '.'),   # yt-dlp embarqué
+        ('{bin}/deno.exe', '.'),     # moteur JavaScript embarqué
     ],
-    hookspath=[],
-    runtime_hooks=[],
+    datas=[
+        ('{logo}', '.'),
+        ('{icon}', '.'),
+        ('{win_icon}', '.'),
+        ('{splash}', '.'),
+    ] + kivymd_datas,
+    hiddenimports=kivymd_modules + ['kivymd.icon_definitions.md_icons'],
+    hookspath=hookspath(),
+    runtime_hooks=runtime_hooks(),
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=None,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=None)
+pyz = PYZ(a.pure, a.zipped_data)
+
+splash = Splash(
+    '{splash}',
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=None,
+)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.datas,  # Les fichiers sont inclus directement
-    [],
-    name='{APP_NAME}',
+    a.datas,
+    splash,
+    splash.binaries,
+    *[Tree(p) for p in (sdl2.dep_bins + glew.dep_bins + angle.dep_bins)],
+    name='{name}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     runtime_tmpdir=None,
     console=False,
-    icon='{ICON_FILE}',
-    splash='{SPLASH_FILE}'  # <-- Splash screen intégré
+    icon='{icon}',
 )
 """
 
-# --- Écrire le fichier .spec ---
-with open(f"{APP_NAME}.spec", "w", encoding="utf-8") as f:
-    f.write(spec_content)
-print(f"--- Fichier {APP_NAME}.spec créé avec succès ---")
 
-# --- Lancer PyInstaller ---
-print("--- Lancement de PyInstaller... ---")
-os.system(f'pyinstaller --noconfirm {APP_NAME}.spec')
+def main():
+    force_update = "--update" in sys.argv
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-print("--- Build terminé ! L'exécutable se trouve dans le dossier 'dist' ---")
+    check_files()
+    prepare_tools(force_update)
+
+    print("--- Nettoyage des anciens builds ---")
+    shutil.rmtree("build", ignore_errors=True)
+    shutil.rmtree("dist", ignore_errors=True)
+
+    spec = SPEC_TEMPLATE.format(
+        main=MAIN_SCRIPT, bin=BIN_DIR, logo=LOGO_FILE, icon=ICON_FILE,
+        win_icon=WINDOW_ICON_FILE, splash=SPLASH_FILE, name=APP_NAME,
+    )
+    with open(f"{APP_NAME}.spec", "w", encoding="utf-8") as f:
+        f.write(spec)
+    print(f"--- {APP_NAME}.spec généré ---")
+
+    print("--- PyInstaller (quelques minutes)... ---")
+    code = subprocess.call([sys.executable, "-m", "PyInstaller", "--noconfirm", f"{APP_NAME}.spec"])
+    if code != 0:
+        sys.exit("Le build a échoué : lisez les messages ci-dessus.")
+
+    exe_path = os.path.join("dist", f"{APP_NAME}.exe")
+    size_mb = os.path.getsize(exe_path) / (1024 * 1024)
+    print(f"--- Terminé ! {exe_path} ({size_mb:.0f} Mo) — prêt à copier sur n'importe quel PC Windows ---")
+
+
+if __name__ == "__main__":
+    main()
