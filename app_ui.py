@@ -5,17 +5,45 @@ import subprocess
 import threading
 from tkinter import filedialog, Tk
 
-# KivyMD imports
-from kivymd.icon_definitions import md_icons
+# Taille de fenêtre (à définir avant de créer la fenêtre Kivy)
+from kivy.config import Config
+Config.set("graphics", "width", "860")
+Config.set("graphics", "height", "760")
+Config.set("graphics", "minimum_width", "720")
+Config.set("graphics", "minimum_height", "700")
+
+# KivyMD imports (version 1.2.0)
 from kivy.lang import Builder
-from kivy.clock import mainthread
+from kivy.clock import mainthread, Clock
 from kivy.core.clipboard import Clipboard
+from kivy.properties import StringProperty, ListProperty
+from kivy.utils import get_color_from_hex
 from kivymd.app import MDApp
-from kivymd.uix.list import OneLineListItem
+from kivymd.uix.list import OneLineListItem  # noqa: F401  (utilisé par le menu)
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.dialog import MDDialog
-from kivymd.uix.button import MDRaisedButton
-from kivymd.uix.screen import MDScreen
+from kivymd.uix.button import MDFlatButton
+
+
+# --- Palette Jessna Convert (identique au logo) ---
+BG = "#0E0E11"
+SURFACE = "#17171B"
+SURFACE_2 = "#1F1F25"
+BORDER = "#2B2B31"
+RED = "#E5202E"
+SILVER = "#C9CED6"
+MUTED = "#8C919B"
+WHITE = "#FFFFFF"
+GREEN = "#22C55E"
+AMBER = "#F59E0B"
+
+STATUS_STYLES = {
+    "info": ("information-outline", MUTED),
+    "loading": ("progress-download", SILVER),
+    "success": ("check-circle", GREEN),
+    "warning": ("alert", AMBER),
+    "error": ("alert-circle", RED),
+}
 
 
 # --- ✅ Fonction universelle pour accéder aux fichiers intégrés ---
@@ -80,7 +108,7 @@ BROWSERS = ("firefox", "chrome", "edge", "brave", "opera", "vivaldi", "chromium"
 COOKIES_HELP = (
     "YouTube demande de prouver que vous n'êtes pas un robot, "
     "et le fichier cookies.txt n'est plus valide (YouTube l'a renouvelé).\n\n"
-    "Solution simple : écrivez  firefox  dans le champ « Fichier de cookies » "
+    "Solution simple : écrivez  firefox  dans le champ « Cookies » "
     "(Firefox doit être connecté à YouTube et fermé).\n\n"
     "Ou ré-exportez cookies.txt :\n"
     "1. Ouvrez une fenêtre de navigation privée et connectez-vous à YouTube.\n"
@@ -98,7 +126,7 @@ JS_HELP = (
     "2. Mettez yt-dlp à jour :\n"
     "   yt-dlp -U   (version .exe)\n"
     "   ou pip install -U \"yt-dlp[default]\"   (version pip)\n"
-    "3. Redémarrez Jessna Conv m3u8.\n\n"
+    "3. Redémarrez Jessna Convert m3u8.\n\n"
     "Astuce : vous pouvez aussi placer deno.exe et yt-dlp.exe "
     "dans le dossier de l'application."
 )
@@ -113,128 +141,250 @@ except Exception:
 
 
 # --- KV Layout ---
-KV = '''
-<CustomSpinner@MDSpinner>:
-    size_hint: None, None
-    size: "46dp", "46dp"
-    pos_hint: {'center_x': 0.5}
-    active: False
+KV = """
+#:import hex kivy.utils.get_color_from_hex
+
+<FieldLabel@MDLabel>:
+    font_style: "Caption"
+    theme_text_color: "Custom"
+    text_color: hex("#8C919B")
+    size_hint_y: None
+    height: "18dp"
+
+<JField@MDTextField>:
+    mode: "rectangle"
+    line_color_normal: hex("#2B2B31")
+    line_color_focus: hex("#E5202E")
+    hint_text_color_normal: hex("#8C919B")
+    hint_text_color_focus: hex("#E5202E")
+    text_color_normal: hex("#FFFFFF")
+    text_color_focus: hex("#FFFFFF")
+    icon_left_color_normal: hex("#8C919B")
+    icon_left_color_focus: hex("#E5202E")
+    icon_right_color_normal: hex("#8C919B")
+    icon_right_color_focus: hex("#E5202E")
+
+<JCard@MDCard>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: self.minimum_height
+    padding: "24dp"
+    spacing: "12dp"
+    radius: [18, 18, 18, 18]
+    elevation: 0
+    md_bg_color: hex("#17171B")
+    line_color: hex("#2B2B31")
 
 MDScreen:
+    md_bg_color: hex("#0E0E11")
+
     MDBoxLayout:
-        orientation: 'vertical'
-        padding: "30dp"
-        spacing: "15dp"
+        orientation: "vertical"
+        padding: ["32dp", "28dp", "32dp", "20dp"]
+        spacing: "18dp"
 
-        Image:
-            source: app.logo_path
-            size_hint_y: None
-            height: "100dp"
-            allow_stretch: True
-            keep_ratio: True
-            pos_hint: {'center_x': 0.5}
-
-        MDLabel:
-            text: "Jessna Conv m3u8"
-            halign: 'center'
-            font_style: 'H5'
-            size_hint_y: None
-            height: self.texture_size[1]
-            padding_y: "10dp"
-
-        MDTextField:
-            id: video_url
-            hint_text: "URL de la vidéo YouTube"
-            mode: "rectangle"
-            icon_right: "youtube"
-
+        # ---------- En-tête ----------
         MDBoxLayout:
             size_hint_y: None
-            height: "50dp"
-            spacing: "20dp"
+            height: "64dp"
+            spacing: "16dp"
 
-            MDTextField:
-                id: quality
-                hint_text: "Qualité"
-                mode: "rectangle"
-                readonly: True
-                text: "720p"
-                on_focus: if self.focus: app.open_quality_menu()
+            Image:
+                source: app.logo_path
+                size_hint: None, None
+                size: "64dp", "64dp"
+                allow_stretch: True
+                keep_ratio: True
 
-            MDTextField:
-                id: cookies_path
-                hint_text: "Fichier de cookies"
-                mode: "rectangle"
-                text: "cookies.txt"
+            MDBoxLayout:
+                orientation: "vertical"
+                spacing: "4dp"
+                padding: [0, "6dp", 0, "6dp"]
 
-            MDRaisedButton:
-                text: "Parcourir..."
-                on_release: app.browse_cookies()
-                size_hint_x: 0.4
-                pos_hint: {"center_y": 0.5}
-                md_bg_color: 1, 1, 1, 1
+                MDBoxLayout:
+                    spacing: "10dp"
+                    size_hint_y: None
+                    height: "30dp"
+
+                    MDLabel:
+                        text: "[b]Jessna[/b] Convert"
+                        markup: True
+                        font_style: "H5"
+                        theme_text_color: "Custom"
+                        text_color: hex("#FFFFFF")
+                        adaptive_width: True
+
+                    MDCard:
+                        size_hint: None, None
+                        size: "62dp", "24dp"
+                        radius: [6, 6, 6, 6]
+                        elevation: 0
+                        md_bg_color: hex("#E5202E")
+                        pos_hint: {"center_y": 0.5}
+                        MDLabel:
+                            text: "[b]M3U8[/b]"
+                            markup: True
+                            halign: "center"
+                            font_size: "12sp"
+                            theme_text_color: "Custom"
+                            text_color: hex("#FFFFFF")
+
+                    Widget:
+
+                MDLabel:
+                    text: "Vos vidéos YouTube en flux m3u8, en un clic."
+                    font_style: "Body2"
+                    theme_text_color: "Custom"
+                    text_color: hex("#8C919B")
+
+        # ---------- Carte : source ----------
+        JCard:
+            FieldLabel:
+                text: "VIDÉO SOURCE"
+
+            JField:
+                id: video_url
+                hint_text: "Collez le lien YouTube (vidéo ou direct)"
+                icon_left: "youtube"
+
+            MDBoxLayout:
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: "12dp"
+
+                JField:
+                    id: quality
+                    hint_text: "Qualité"
+                    text: "720p"
+                    readonly: True
+                    icon_right: "chevron-down"
+                    size_hint_x: 0.34
+                    on_focus: if self.focus: app.open_quality_menu()
+
+                JField:
+                    id: cookies_path
+                    hint_text: "Cookies (fichier .txt ou firefox)"
+                    text: "cookies.txt"
+                    icon_left: "cookie-outline"
+                    size_hint_x: 0.66
+
+                MDIconButton:
+                    icon: "folder-open-outline"
+                    theme_icon_color: "Custom"
+                    icon_color: hex("#C9CED6")
+                    md_bg_color: hex("#1F1F25")
+                    pos_hint: {"center_y": 0.5}
+                    on_release: app.browse_cookies()
+
+            Widget:
+                size_hint_y: None
+                height: "2dp"
+
+            MDFillRoundFlatIconButton:
+                id: generate_button
+                text: "GÉNÉRER LE LIEN M3U8"
+                icon: "play-circle-outline"
+                size_hint_x: 1
+                font_size: "16sp"
+                padding: ["16dp", "16dp", "16dp", "16dp"]
+                md_bg_color: hex("#E5202E")
                 theme_text_color: "Custom"
-                text_color: 0, 0, 0, 1
+                text_color: hex("#FFFFFF")
+                theme_icon_color: "Custom"
+                icon_color: hex("#FFFFFF")
+                on_release: app.start_link_generation()
 
-        MDRaisedButton:
-            id: generate_button
-            text: "Générer le lien"
-            on_release: app.start_link_generation()
-            pos_hint: {'center_x': 0.5}
-            size_hint_x: 1
-            font_style: "H6"
-            padding: "12dp"
-            md_bg_color: 1, 1, 1, 1
-            theme_text_color: "Custom"
-            text_color: 0, 0, 0, 1
+            MDBoxLayout:
+                id: spinner_box
+                size_hint_y: None
+                height: 0
+                opacity: 0
+                MDSpinner:
+                    id: spinner
+                    size_hint: None, None
+                    size: "28dp", "28dp"
+                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+                    color: hex("#E5202E")
+                    line_width: 2.5
+                    active: False
 
+        # ---------- Carte : résultat ----------
+        JCard:
+            FieldLabel:
+                text: "LIEN M3U8"
+
+            JField:
+                id: output_link
+                hint_text: "Le lien apparaîtra ici"
+                readonly: True
+                icon_left: "link-variant"
+
+            MDFillRoundFlatIconButton:
+                text: "COPIER LE LIEN"
+                icon: "content-copy"
+                size_hint_x: 1
+                font_size: "15sp"
+                padding: ["16dp", "14dp", "16dp", "14dp"]
+                md_bg_color: hex("#1F1F25")
+                theme_text_color: "Custom"
+                text_color: hex("#FFFFFF")
+                theme_icon_color: "Custom"
+                icon_color: hex("#C9CED6")
+                on_release: app.copy_to_clipboard()
+
+        # ---------- Statut ----------
         MDBoxLayout:
-            id: spinner_box
-            size_hint_y: None
-            height: 0
-            opacity: 0
-            CustomSpinner:
-                id: spinner
+            adaptive_size: True
+            spacing: "8dp"
+            pos_hint: {"center_x": 0.5}
 
-        MDTextField:
-            id: output_link
-            hint_text: "Lien m3u8 généré"
-            mode: "rectangle"
-            readonly: True
+            MDIcon:
+                id: status_icon
+                icon: app.status_icon
+                theme_text_color: "Custom"
+                text_color: app.status_color
+                font_size: "20sp"
+                adaptive_size: True
+                pos_hint: {"center_y": 0.5}
 
-        MDRaisedButton:
-            text: "Copier le lien"
-            on_release: app.copy_to_clipboard()
-            pos_hint: {'center_x': 0.5}
-            size_hint_x: 1
-            md_bg_color: 1, 1, 1, 1
-            theme_text_color: "Custom"
-            text_color: 0, 0, 0, 1
+            MDLabel:
+                id: status_label
+                text: "Prêt"
+                theme_text_color: "Custom"
+                text_color: app.status_color
+                adaptive_size: True
+                pos_hint: {"center_y": 0.5}
+
+        Widget:
 
         MDLabel:
-            id: status_label
-            text: "Prêt"
-            halign: 'center'
+            text: "Jessna TechLearn  ·  Jessna Convert m3u8"
+            halign: "center"
+            font_style: "Caption"
+            theme_text_color: "Custom"
+            text_color: hex("#5E626B")
             size_hint_y: None
-            height: self.texture_size[1]
-            theme_text_color: "Secondary"
-'''
+            height: "18dp"
+"""
 
 
 class MainApp(MDApp):
+    status_icon = StringProperty("information-outline")
+    status_color = ListProperty([0.55, 0.57, 0.61, 1])
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.quality_menu = None
         self.dialog = None
-        # --- 🔥 Charger les ressources intégrées ---
         self.logo_path = resource_path("logo_jessna_convert.png")
         self.icon_path = resource_path("logo_jessna_convert.ico")
 
     def build(self):
-        self.title = "Jessna Conv m3u8"
+        self.title = "Jessna Convert m3u8"
         self.icon = self.icon_path
         self.theme_cls.theme_style = "Dark"
-        self.theme_cls.primary_palette = "Purple"
+        self.theme_cls.primary_palette = "Red"
+        self.theme_cls.primary_hue = "A700"
         return Builder.load_string(KV)
 
     def on_start(self):
@@ -243,14 +393,15 @@ class MainApp(MDApp):
             {
                 "viewclass": "OneLineListItem",
                 "text": quality,
-                "height": 56,
+                "height": 52,
                 "on_release": lambda x=quality: self.set_quality(x),
             } for quality in qualities
         ]
         self.quality_menu = MDDropdownMenu(
             caller=self.root.ids.quality,
             items=menu_items,
-            width_mult=4,
+            width_mult=3,
+            background_color=get_color_from_hex(SURFACE_2),
         )
 
     def open_quality_menu(self):
@@ -258,6 +409,7 @@ class MainApp(MDApp):
 
     def set_quality(self, quality):
         self.root.ids.quality.text = quality
+        self.root.ids.quality.focus = False
         self.quality_menu.dismiss()
 
     def browse_cookies(self):
@@ -265,7 +417,7 @@ class MainApp(MDApp):
             self.show_error_dialog("Erreur", "Impossible d'initialiser l'explorateur de fichiers.")
             return
         file_path = filedialog.askopenfilename(
-            title="Sélectionnez cookies.txt",
+            title="Sélectionnez le fichier de cookies",
             filetypes=(("Fichiers texte", "*.txt"), ("Tous les fichiers", "*.*"))
         )
         if file_path:
@@ -275,16 +427,19 @@ class MainApp(MDApp):
         link = self.root.ids.output_link.text
         if link:
             Clipboard.copy(link)
-            self.set_status("Lien copié dans le presse-papiers !")
+            self.set_status("Lien copié dans le presse-papiers", "success")
         else:
-            self.set_status("Rien à copier.")
+            self.set_status("Rien à copier pour l'instant", "warning")
 
     def start_link_generation(self):
         thread = threading.Thread(target=self.get_m3u8_link, daemon=True)
         thread.start()
 
     @mainthread
-    def set_status(self, text):
+    def set_status(self, text, kind="info"):
+        icon, color = STATUS_STYLES.get(kind, STATUS_STYLES["info"])
+        self.status_icon = icon
+        self.status_color = get_color_from_hex(color)
         self.root.ids.status_label.text = text
 
     @mainthread
@@ -293,41 +448,49 @@ class MainApp(MDApp):
 
     @mainthread
     def toggle_ui_elements(self, disabled):
-        self.root.ids.generate_button.disabled = disabled
-        self.root.ids.video_url.disabled = disabled
-        self.root.ids.quality.disabled = disabled
-        self.root.ids.cookies_path.disabled = disabled
+        ids = self.root.ids
+        ids.generate_button.disabled = disabled
+        ids.generate_button.text = "RECHERCHE EN COURS..." if disabled else "GÉNÉRER LE LIEN M3U8"
+        ids.video_url.disabled = disabled
+        ids.quality.disabled = disabled
+        ids.cookies_path.disabled = disabled
 
-        spinner_box = self.root.ids.spinner_box
-        spinner = self.root.ids.spinner
         if disabled:
-            spinner_box.height = "46dp"
-            spinner_box.opacity = 1
-            spinner.active = True
+            ids.spinner_box.height = "32dp"
+            ids.spinner_box.opacity = 1
+            ids.spinner.active = True
         else:
-            spinner.active = False
-            spinner_box.height = 0
-            spinner_box.opacity = 0
+            ids.spinner.active = False
+            ids.spinner_box.height = 0
+            ids.spinner_box.opacity = 0
 
     @mainthread
     def show_error_dialog(self, title, text):
-        if not self.dialog:
-            self.dialog = MDDialog(
-                title=f"[color=ff0000]{title}[/color]",
-                text=text,
-            )
-        else:
-            self.dialog.title = f"[color=ff0000]{title}[/color]"
-            self.dialog.text = text
+        if self.dialog:
+            self.dialog.dismiss()
+        self.dialog = MDDialog(
+            title=title,
+            text=text,
+            md_bg_color=get_color_from_hex(SURFACE),
+            buttons=[
+                MDFlatButton(
+                    text="OK",
+                    theme_text_color="Custom",
+                    text_color=get_color_from_hex(RED),
+                    on_release=lambda *_: self.dialog.dismiss(),
+                )
+            ],
+        )
         self.dialog.open()
 
     def get_m3u8_link(self):
-        video_url = self.root.ids.video_url.text
+        video_url = self.root.ids.video_url.text.strip()
         if not video_url:
-            self.show_error_dialog("Erreur", "Veuillez entrer une URL de vidéo YouTube.")
+            self.set_status("Collez d'abord un lien YouTube", "warning")
+            self.show_error_dialog("Lien manquant", "Veuillez entrer l'URL d'une vidéo YouTube.")
             return
 
-        self.set_status("🔍 Récupération du lien m3u8...")
+        self.set_status("Récupération du lien m3u8...", "loading")
         self.set_output_link("")
         self.toggle_ui_elements(True)
 
@@ -362,23 +525,22 @@ class MainApp(MDApp):
             m3u8_url = result.stdout.strip().split('\n')[0]
             if m3u8_url and ("m3u8" in m3u8_url or "hls" in m3u8_url):
                 self.set_output_link(m3u8_url)
-                self.set_status("✅ Lien trouvé !")
+                self.set_status("Lien m3u8 prêt !", "success")
             else:
-                self.set_status("❌ Aucun lien trouvé.")
-                self.show_error_dialog("Erreur", "Aucun lien m3u8 trouvé. Vérifiez l'URL et le fichier cookies.")
-
+                self.set_status("Aucun lien m3u8 trouvé", "error")
+                self.show_error_dialog("Aucun lien", "Aucun lien m3u8 trouvé. Vérifiez l'URL et les cookies.")
 
         except FileNotFoundError:
-            self.set_status("🚨 Erreur : yt-dlp introuvable.")
-            self.show_error_dialog("Erreur", "yt-dlp n'est pas installé ou pas dans le PATH.")
+            self.set_status("yt-dlp introuvable", "error")
+            self.show_error_dialog("yt-dlp introuvable", "yt-dlp n'est pas installé ou pas dans le PATH.")
         except subprocess.CalledProcessError as e:
             stderr = e.stderr or ""
             if "not a bot" in stderr or "cookies are no longer valid" in stderr:
-                self.set_status("🔒 Cookies YouTube à renouveler.")
+                self.set_status("Cookies YouTube à renouveler", "warning")
                 self.show_error_dialog("Cookies expirés", COOKIES_HELP)
                 return
             if "Requested format is not available" in stderr:
-                self.set_status("❌ Pas de flux m3u8 pour cette vidéo.")
+                self.set_status("Pas de flux m3u8 pour cette vidéo", "error")
                 self.show_error_dialog(
                     "Pas de m3u8",
                     "YouTube ne propose pas de flux m3u8 (HLS) pour cette vidéo.\n\n"
@@ -393,13 +555,13 @@ class MainApp(MDApp):
                 or not has_js_runtime()
             )
             if js_problem:
-                self.set_status("⚠️ Moteur JavaScript manquant ou yt-dlp obsolète.")
+                self.set_status("Moteur JavaScript manquant ou yt-dlp obsolète", "warning")
                 self.show_error_dialog("Configuration requise", JS_HELP)
             else:
-                self.set_status("⚠️ Erreur yt-dlp.")
+                self.set_status("Erreur yt-dlp", "error")
                 self.show_error_dialog("Erreur yt-dlp", stderr or "Erreur inconnue de yt-dlp.")
         except Exception as e:
-            self.set_status("🚨 Une erreur inattendue est survenue.")
+            self.set_status("Une erreur inattendue est survenue", "error")
             self.show_error_dialog("Erreur", str(e))
         finally:
             self.toggle_ui_elements(False)

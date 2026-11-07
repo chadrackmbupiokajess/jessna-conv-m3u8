@@ -30,6 +30,7 @@ a = Analysis(
     datas=[
         ('{LOGO_FILE}', '.'),   # Logo intégré
         ('{ICON_FILE}', '.'),   # Icône intégrée
+        ('logo_jessna_convert_icon.png', '.'),  # Icône de la fenêtre
         ('{SPLASH_FILE}', '.'), # Splash intégré
     ] + kivymd_datas,
     hiddenimports=[

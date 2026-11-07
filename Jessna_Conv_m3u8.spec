@@ -11,6 +11,7 @@ a = Analysis(
     datas=[
         ('logo_jessna_convert.png', '.'),   # Logo intégré
         ('logo_jessna_convert.ico', '.'),   # Icône intégrée
+        ('logo_jessna_convert_icon.png', '.'),  # Icône de la fenêtre
         ('splash_jessna_convert.png', '.'), # Splash intégré
     ] + kivymd_datas,
     hiddenimports=[
