@@ -689,7 +689,7 @@ class MainApp(MDApp):
         # Force le logo dans la barre de titre (au cas où Kivy garde le sien)
         if os.path.exists(self.icon_path):
             Window.set_icon(self.icon_path)
-        qualities = ["1080p", "720p", "480p"]
+        qualities = ["1080p", "720p", "480p", "360p", "240p", "144p"]
         menu_items = [
             {
                 "viewclass": "OneLineListItem",
@@ -829,11 +829,13 @@ class MainApp(MDApp):
         self.toggle_ui_elements(True)
 
         # Uniquement des flux HLS (m3u8) : un seul lien, vidéo + son ensemble.
-        # Si la qualité demandée n'existe pas en m3u8, on prend la meilleure m3u8 dispo.
+        # On prend la meilleure m3u8 qui ne dépasse pas la qualité choisie.
+        # Si aucune n'est assez basse, on prend la plus légère (jamais plus lourde que demandé
+        # sans nécessité : important pour les connexions faibles).
         height = self.root.ids.quality.text.replace("p", "") or "720"
         if not height.isdigit():
             height = "720"
-        format_id = f"best[protocol^=m3u8][height<={height}]/best[protocol^=m3u8]"
+        format_id = f"best[protocol^=m3u8][height<={height}]/worst[protocol^=m3u8]"
         cookies_path = self.root.ids.cookies_path.text
 
         try:
