@@ -9,9 +9,9 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('logo_hosanna.png', '.'),   # Logo intégré
-        ('logo_hosanna.ico', '.'),   # Icône intégrée
-        ('splash.png', '.'), # Splash intégré
+        ('logo_jessna_convert.png', '.'),   # Logo intégré
+        ('logo_jessna_convert.ico', '.'),   # Icône intégrée
+        ('splash_jessna_convert.png', '.'), # Splash intégré
     ] + kivymd_datas,
     hiddenimports=[
         'kivymd.icon_definitions.md_icons',  # module souvent manquant
@@ -40,6 +40,6 @@ exe = EXE(
     upx=True,
     runtime_tmpdir=None,
     console=False,
-    icon='logo_hosanna.ico',
-    splash='splash.png'  # <-- Splash screen intégré
+    icon='logo_jessna_convert.ico',
+    splash='splash_jessna_convert.png'  # <-- Splash screen intégré
 )

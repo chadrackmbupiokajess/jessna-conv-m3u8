@@ -5,9 +5,9 @@ from pathlib import Path
 # --- Configuration ---
 APP_NAME = "Jessna_Conv_m3u8"
 MAIN_SCRIPT = "app_ui.py"
-ICON_FILE = "logo_hosanna.ico"
-LOGO_FILE = "logo_hosanna.png"
-SPLASH_FILE = "splash.png"  # ton image d’écran de chargement (tu peux la créer)
+ICON_FILE = "logo_jessna_convert.ico"
+LOGO_FILE = "logo_jessna_convert.png"
+SPLASH_FILE = "splash_jessna_convert.png"  # ton image d’écran de chargement (tu peux la créer)
 
 # --- Nettoyage des anciens builds ---
 print("--- Nettoyage des anciens builds ---")

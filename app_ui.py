@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 import subprocess
 import threading
 from tkinter import filedialog, Tk
@@ -28,6 +29,79 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+
+def app_dir():
+    """Dossier où se trouve l'application (.exe installé ou script .py)."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def find_tool(name):
+    """
+    Cherche un exécutable (yt-dlp, deno, node...) :
+    1. à côté de l'application (ex. livré avec l'installeur),
+    2. dans les ressources intégrées PyInstaller,
+    3. dans le PATH Windows.
+    """
+    exe_name = name + (".exe" if os.name == "nt" else "")
+    for folder in (app_dir(), resource_path(".")):
+        candidate = os.path.join(folder, exe_name)
+        if os.path.isfile(candidate):
+            return candidate
+    return shutil.which(name)
+
+
+def build_js_runtime_args():
+    """
+    Depuis fin 2025, YouTube impose un « challenge » JavaScript (paramètre n / signature).
+    yt-dlp doit l'exécuter avec un runtime JS externe (Deno recommandé, Node accepté)
+    et le script de résolution EJS. Sans ça : « n challenge solving failed »
+    puis « No video formats found ».
+    """
+    args = []
+    for runtime in ("deno", "node", "quickjs", "bun"):
+        path = find_tool(runtime)
+        if path:
+            args.extend(["--js-runtimes", f"{runtime}:{path}"])
+    # Télécharge automatiquement le script de résolution EJS à jour depuis GitHub
+    # si la version locale manque ou est trop ancienne.
+    args.extend(["--remote-components", "ejs:github"])
+    return args
+
+
+def has_js_runtime():
+    return any(find_tool(r) for r in ("deno", "node", "quickjs", "bun"))
+
+
+BROWSERS = ("firefox", "chrome", "edge", "brave", "opera", "vivaldi", "chromium")
+
+COOKIES_HELP = (
+    "YouTube demande de prouver que vous n'êtes pas un robot, "
+    "et le fichier cookies.txt n'est plus valide (YouTube l'a renouvelé).\n\n"
+    "Solution simple : écrivez  firefox  dans le champ « Fichier de cookies » "
+    "(Firefox doit être connecté à YouTube et fermé).\n\n"
+    "Ou ré-exportez cookies.txt :\n"
+    "1. Ouvrez une fenêtre de navigation privée et connectez-vous à YouTube.\n"
+    "2. Dans le même onglet, allez sur youtube.com/robots.txt.\n"
+    "3. Exportez les cookies (extension « Get cookies.txt LOCALLY »).\n"
+    "4. Fermez la fenêtre privée sans revenir sur YouTube."
+)
+
+
+JS_HELP = (
+    "YouTube exige maintenant un moteur JavaScript pour déchiffrer les vidéos.\n\n"
+    "1. Installez Deno : ouvrez PowerShell et tapez\n"
+    "   winget install DenoLand.Deno\n"
+    "   (ou installez Node.js depuis nodejs.org)\n"
+    "2. Mettez yt-dlp à jour :\n"
+    "   yt-dlp -U   (version .exe)\n"
+    "   ou pip install -U \"yt-dlp[default]\"   (version pip)\n"
+    "3. Redémarrez Jessna Conv m3u8.\n\n"
+    "Astuce : vous pouvez aussi placer deno.exe et yt-dlp.exe "
+    "dans le dossier de l'application."
+)
 
 
 # Masquer la fenêtre Tkinter
@@ -153,8 +227,8 @@ class MainApp(MDApp):
         self.quality_menu = None
         self.dialog = None
         # --- 🔥 Charger les ressources intégrées ---
-        self.logo_path = resource_path("logo_hosanna.png")
-        self.icon_path = resource_path("logo_hosanna.ico")
+        self.logo_path = resource_path("logo_jessna_convert.png")
+        self.icon_path = resource_path("logo_jessna_convert.ico")
 
     def build(self):
         self.title = "Jessna Conv m3u8"
@@ -257,36 +331,73 @@ class MainApp(MDApp):
         self.set_output_link("")
         self.toggle_ui_elements(True)
 
-        format_map = {
-            "1080p": "bestvideo[height<=1080]+bestaudio/best",
-            "720p": "bestvideo[height<=720]+bestaudio/best",
-            "480p": "bestvideo[height<=480]+bestaudio/best",
-        }
-        format_id = format_map.get(self.root.ids.quality.text, "bestvideo[height<=720]+bestaudio/best")
+        # Uniquement des flux HLS (m3u8) : un seul lien, vidéo + son ensemble.
+        # Si la qualité demandée n'existe pas en m3u8, on prend la meilleure m3u8 dispo.
+        height = self.root.ids.quality.text.replace("p", "") or "720"
+        if not height.isdigit():
+            height = "720"
+        format_id = f"best[protocol^=m3u8][height<={height}]/best[protocol^=m3u8]"
         cookies_path = self.root.ids.cookies_path.text
 
         try:
-            command = ["yt-dlp", "-f", format_id, "--get-url", video_url]
-            if os.path.exists(cookies_path):
+            yt_dlp_path = find_tool("yt-dlp")
+            if not yt_dlp_path:
+                raise FileNotFoundError("yt-dlp")
+
+            command = [yt_dlp_path, "-f", format_id, "--get-url", "--no-playlist"]
+            command.extend(build_js_runtime_args())
+            # Les clients "tv" et "ios" de YouTube fournissent les flux HLS (m3u8)
+            command.extend(["--extractor-args", "youtube:player_client=default,tv,ios"])
+            browser = cookies_path.strip().lower()
+            if browser in BROWSERS:
+                # Lit les cookies directement dans le navigateur (toujours à jour)
+                command.extend(["--cookies-from-browser", browser])
+            elif os.path.exists(cookies_path):
                 command.extend(["--cookies", cookies_path])
+            command.append(video_url)
 
             creationflags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             result = subprocess.run(command, capture_output=True, text=True, check=True, creationflags=creationflags)
 
             m3u8_url = result.stdout.strip().split('\n')[0]
-            if m3u8_url:
+            if m3u8_url and ("m3u8" in m3u8_url or "hls" in m3u8_url):
                 self.set_output_link(m3u8_url)
                 self.set_status("✅ Lien trouvé !")
             else:
                 self.set_status("❌ Aucun lien trouvé.")
                 self.show_error_dialog("Erreur", "Aucun lien m3u8 trouvé. Vérifiez l'URL et le fichier cookies.")
 
+
         except FileNotFoundError:
             self.set_status("🚨 Erreur : yt-dlp introuvable.")
             self.show_error_dialog("Erreur", "yt-dlp n'est pas installé ou pas dans le PATH.")
         except subprocess.CalledProcessError as e:
-            self.set_status("⚠️ Erreur yt-dlp.")
-            self.show_error_dialog("Erreur yt-dlp", e.stderr or "Erreur inconnue de yt-dlp.")
+            stderr = e.stderr or ""
+            if "not a bot" in stderr or "cookies are no longer valid" in stderr:
+                self.set_status("🔒 Cookies YouTube à renouveler.")
+                self.show_error_dialog("Cookies expirés", COOKIES_HELP)
+                return
+            if "Requested format is not available" in stderr:
+                self.set_status("❌ Pas de flux m3u8 pour cette vidéo.")
+                self.show_error_dialog(
+                    "Pas de m3u8",
+                    "YouTube ne propose pas de flux m3u8 (HLS) pour cette vidéo.\n\n"
+                    "Les directs (lives) en ont toujours ; certaines vidéos normales non.\n"
+                    "Essayez sans fichier cookies, ou mettez yt-dlp à jour (yt-dlp -U).",
+                )
+                return
+            js_problem = (
+                "challenge solving failed" in stderr
+                or "JavaScript runtime" in stderr
+                or "No video formats found" in stderr
+                or not has_js_runtime()
+            )
+            if js_problem:
+                self.set_status("⚠️ Moteur JavaScript manquant ou yt-dlp obsolète.")
+                self.show_error_dialog("Configuration requise", JS_HELP)
+            else:
+                self.set_status("⚠️ Erreur yt-dlp.")
+                self.show_error_dialog("Erreur yt-dlp", stderr or "Erreur inconnue de yt-dlp.")
         except Exception as e:
             self.set_status("🚨 Une erreur inattendue est survenue.")
             self.show_error_dialog("Erreur", str(e))
