@@ -1,21 +1,22 @@
-====================================================
-INFORMATIONS AVANT L'INSTALLATION
+﻿====================================================
+BIENVENUE DANS JESSNA CONVERT M3U8
 ====================================================
 
-Bienvenue dans l'assistant d'installation de Jessna Conv m3u8.
+Cet assistant va installer Jessna Convert m3u8 sur votre ordinateur.
+
+Jessna Convert m3u8 transforme une vidéo ou un direct YouTube en lien m3u8 (HLS) prêt à diffuser.
 
 ----------------------------------------------------
-PRÉREQUIS IMPORTANT
+AUCUN PRÉREQUIS
 ----------------------------------------------------
-Pour que cette application fonctionne correctement, l'outil "yt-dlp" doit être installé sur votre système et accessible depuis le PATH.
-
-Si vous ne l'avez pas, l'application affichera une erreur. Vous pouvez l'installer en suivant les instructions sur le site officiel de yt-dlp.
+L'application est autonome : tout ce dont elle a besoin est déjà inclus.
+Vous n'avez rien d'autre à installer. Une connexion Internet est simplement nécessaire pour accéder à YouTube.
 
 ----------------------------------------------------
 PROCESSUS D'INSTALLATION
 ----------------------------------------------------
 Cet assistant va :
-- Copier les fichiers de l'application dans le dossier Program Files.
+- Copier l'application dans le dossier Program Files\Jessna Tech.
 - Créer des raccourcis dans le Menu Démarrer et sur le Bureau.
 
 Cliquez sur "Suivant" pour commencer l'installation.

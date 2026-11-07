@@ -1,24 +1,30 @@
-====================================================
+﻿====================================================
 INSTALLATION TERMINÉE
 ====================================================
 
-Félicitations ! Jessna Conv m3u8 a été installé avec succès sur votre ordinateur.
+Félicitations ! Jessna Convert m3u8 a été installé avec succès sur votre ordinateur.
 
 ----------------------------------------------------
 COMMENT LANCER L'APPLICATION ?
 ----------------------------------------------------
-Vous pouvez démarrer l'application de deux manières :
-- En double-cliquant sur le raccourci qui a été créé sur votre Bureau.
-- En la recherchant dans votre Menu Démarrer.
+- Double-cliquez sur le raccourci "Jessna Convert m3u8" de votre Bureau,
+- ou recherchez-le dans le Menu Démarrer (dossier Jessna Tech).
 
 ----------------------------------------------------
 GUIDE DE DÉMARRAGE RAPIDE
 ----------------------------------------------------
-1. Lancez l'application.
-2. Collez l'URL d'une vidéo YouTube dans le champ prévu.
-3. Choisissez la qualité souhaitée.
-4. Cliquez sur "Générer le lien".
+1. Collez le lien d'une vidéo ou d'un direct YouTube.
+2. Choisissez la qualité (1080p, 720p ou 480p).
+3. Indiquez vos cookies YouTube : un fichier .txt (bouton dossier)
+   ou écrivez simplement  firefox  si vous êtes connecté à YouTube dans Firefox.
+4. Cliquez sur "GÉNÉRER LE LIEN M3U8", puis sur "COPIER".
 
 ----------------------------------------------------
+CONTACT ET ASSISTANCE
+----------------------------------------------------
+Chadrack Mbu Jess — Fondateur & CEO, Jessna Tech
+Téléphone : +243 891 433 419
+E-mail    : chadrackmbujess@gmail.com
+Site      : chadrackmbu.pythonanywhere.com
 
-Merci d'utiliser Jessna Conv m3u8 !
+Merci d'utiliser Jessna Convert m3u8 !

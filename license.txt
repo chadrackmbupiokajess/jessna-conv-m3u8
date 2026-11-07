@@ -1,10 +1,11 @@
-====================================================
-CONTRAT DE LICENSE UTILISATEUR FINAL (CLUF)
+﻿====================================================
+CONTRAT DE LICENCE UTILISATEUR FINAL (CLUF)
+Jessna Convert m3u8 — Jessna Tech
 ====================================================
 
 VEUILLEZ LIRE ATTENTIVEMENT LES TERMES DE CE CONTRAT AVANT D'INSTALLER OU D'UTILISER CE LOGICIEL.
 
-Ce logiciel, "Hosanna Tv+ Conv m3u8" (ci-après "le Logiciel"), est fourni "en l'état", sans garantie d'aucune sorte, expresse ou implicite, y compris, mais sans s'y limiter, les garanties de qualité marchande, d'adéquation à un usage particulier et d'absence de contrefaçon. En aucun cas, l'auteur ne pourra être tenu responsable de tout dommage direct ou indirect résultant de l'utilisation de ce Logiciel.
+Ce logiciel, "Jessna Convert m3u8" (ci-après "le Logiciel"), édité par Jessna Tech, est fourni "en l'état", sans garantie d'aucune sorte, expresse ou implicite, y compris, mais sans s'y limiter, les garanties de qualité marchande, d'adéquation à un usage particulier et d'absence de contrefaçon. En aucun cas, l'éditeur ne pourra être tenu responsable de tout dommage direct ou indirect résultant de l'utilisation de ce Logiciel.
 
 ----------------------------------------------------
 1. AUTORISATIONS
@@ -22,7 +23,17 @@ Vous n'êtes PAS autorisé à :
 - Supprimer ou altérer les mentions de copyright.
 
 ----------------------------------------------------
+3. RESPONSABILITÉ DE L'UTILISATEUR
+----------------------------------------------------
+Vous êtes seul responsable des contenus que vous traitez avec le Logiciel et du respect des conditions d'utilisation des plateformes concernées ainsi que des droits d'auteur.
+
+----------------------------------------------------
+4. COMPOSANTS TIERS
+----------------------------------------------------
+Le Logiciel intègre des composants libres (notamment yt-dlp, Deno, Kivy et KivyMD), qui restent soumis à leurs propres licences.
+
+----------------------------------------------------
 En installant ou en utilisant le Logiciel, vous reconnaissez avoir lu, compris et accepté sans réserve les termes de ce contrat.
 
-Copyright (c) 2025 Hosanna Tv Plus
+Copyright (c) 2026 Jessna Tech — Chadrack Mbu Jess
 Tous droits réservés.

@@ -1,0 +1,18 @@
+# --- Données personnelles : NE JAMAIS publier ---
+cookies.txt
+*cookies*.txt
+
+# --- Outils téléchargés par build.py (yt-dlp.exe, deno.exe) ---
+bin/
+
+# --- Fichiers générés par PyInstaller ---
+build/
+dist/
+installer/
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- PyCharm (réglages personnels) ---
+.idea/workspace.xml
