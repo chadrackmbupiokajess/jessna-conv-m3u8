@@ -45,11 +45,17 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data)
 
+# Écran de démarrage avec texte : pendant l'extraction, il affiche le fichier en cours,
+# puis l'appli y écrit « Veuillez patienter » + la progression (voir app_ui.py).
 splash = Splash(
     'splash_jessna_convert.png',
     binaries=a.binaries,
     datas=a.datas,
-    text_pos=None,
+    text_pos=(62, 385),
+    text_size=10,
+    text_color='#C9CED6',
+    text_default='Veuillez patienter... préparation de Jessna Convert m3u8',
+    always_on_top=True,
 )
 
 exe = EXE(

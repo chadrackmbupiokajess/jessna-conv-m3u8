@@ -3,6 +3,52 @@ import sys
 import shutil
 import subprocess
 import threading
+import time
+
+# ---------------------------------------------------------------------------
+# Écran de démarrage (exe uniquement) : message « Veuillez patienter » animé
+# + étape et pourcentage pendant le chargement de Kivy / KivyMD.
+# ---------------------------------------------------------------------------
+try:
+    import pyi_splash  # n'existe que dans l'exe PyInstaller
+except ImportError:
+    pyi_splash = None
+
+_splash_state = {"step": "Démarrage", "pct": 5}
+
+
+def splash_step(step, pct):
+    """Change l'étape affichée sur l'écran de démarrage."""
+    _splash_state["step"], _splash_state["pct"] = step, pct
+
+
+def _splash_alive():
+    try:
+        return pyi_splash is not None and pyi_splash.is_alive()
+    except Exception:
+        return False
+
+
+def _splash_loop():
+    frame = 0
+    while _splash_alive():
+        pct = _splash_state["pct"]
+        bar = "■" * (pct // 10) + "□" * (10 - pct // 10)
+        dots = "." * (frame % 4)
+        try:
+            pyi_splash.update_text(
+                f"Veuillez patienter{dots.ljust(3)}   {bar}  {pct} %   {_splash_state['step']}"
+            )
+        except Exception:
+            break
+        frame += 1
+        time.sleep(0.35)
+
+
+if pyi_splash is not None:
+    threading.Thread(target=_splash_loop, daemon=True).start()
+
+splash_step("Démarrage", 10)
 from tkinter import filedialog, Tk
 
 import webbrowser
@@ -41,6 +87,7 @@ if os.path.exists(_WINDOW_ICON):
     Config.set("kivy", "window_icon", _WINDOW_ICON)
 
 # KivyMD imports (version 1.2.0)
+splash_step("Chargement du moteur graphique", 25)
 from kivy.lang import Builder
 from kivy.clock import mainthread, Clock
 from kivy.core.clipboard import Clipboard
@@ -48,6 +95,7 @@ from kivy.properties import StringProperty, ListProperty, DictProperty
 from kivy.utils import get_color_from_hex
 from kivy.metrics import dp
 from kivy.core.window import Window
+splash_step("Chargement de l'interface", 50)
 from kivymd.app import MDApp
 from kivymd.uix.list import OneLineListItem  # noqa: F401  (utilisé par le menu)
 from kivymd.uix.menu import MDDropdownMenu
@@ -275,6 +323,58 @@ KV = """
         text_color: hex("#C9CED6")
         font_style: "Body2"
 
+<EcoRow@MDCard>:
+    text: ""
+    sub: ""
+    icon: "circle-medium"
+    current: False
+    size_hint_y: None
+    height: "62dp"
+    padding: ["12dp", 0, "14dp", 0]
+    spacing: "12dp"
+    radius: [14, 14, 14, 14]
+    elevation: 0
+    md_bg_color: hex("#2A1215") if self.current else hex("#1F1F25")
+    line_color: hex("#8A1F29") if self.current else hex("#2B2B31")
+    MDFloatLayout:
+        size_hint: None, None
+        size: "40dp", "40dp"
+        pos_hint: {"center_y": 0.5}
+        radius: [12, 12, 12, 12]
+        md_bg_color: hex("#E5202E") if root.current else hex("#2A2A31")
+        MDIcon:
+            icon: root.icon
+            adaptive_size: True
+            font_size: "21sp"
+            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+            theme_text_color: "Custom"
+            text_color: hex("#FFFFFF") if root.current else hex("#D7DBE1")
+    MDBoxLayout:
+        orientation: "vertical"
+        size_hint_y: None
+        height: "40dp"
+        pos_hint: {"center_y": 0.5}
+        MDLabel:
+            text: "[b]" + root.text + "[/b]"
+            markup: True
+            font_size: "15sp"
+            theme_text_color: "Custom"
+            text_color: hex("#FFFFFF")
+        MDLabel:
+            text: root.sub
+            font_style: "Caption"
+            theme_text_color: "Custom"
+            text_color: hex("#8C919B")
+    MDLabel:
+        text: "[b]VOUS ÊTES ICI[/b]" if root.current else ""
+        markup: True
+        size_hint_x: None
+        width: "96dp" if root.current else 0
+        halign: "right"
+        font_size: "10sp"
+        theme_text_color: "Custom"
+        text_color: hex("#FF8A92")
+
 MDScreenManager:
 
     # =====================  PAGE D'ACCUEIL  =====================
@@ -492,8 +592,15 @@ MDScreenManager:
         md_bg_color: hex("#0E0E11")
 
         MDScrollView:
+            id: about_scroll
             do_scroll_x: False
-            bar_width: "4dp"
+            # Barre de défilement visible et attrapable à la souris (en plus du glisser)
+            bar_width: "8dp"
+            bar_margin: "4dp"
+            bar_color: hex("#E5202E")
+            bar_inactive_color: hex("#3A3A42")
+            scroll_type: ["bars", "content"]
+            scroll_wheel_distance: "60dp"
 
             MDBoxLayout:
                 orientation: "vertical"
@@ -625,26 +732,41 @@ MDScreenManager:
                     FieldLabel:
                         text: "L'ÉCOSYSTÈME JESSNA TECH"
 
-                    MDGridLayout:
-                        cols: 2
+                    MDBoxLayout:
+                        orientation: "vertical"
                         adaptive_height: True
-                        spacing: "10dp"
+                        spacing: "8dp"
 
-                        EcoChip:
+                        EcoRow:
                             icon: "movie-open-play"
                             text: "Jessna CinéHub"
+                            sub: "Streaming films & séries"
 
-                        EcoChip:
+                        EcoRow:
                             icon: "school-outline"
                             text: "Jessna TechLearn"
+                            sub: "Formation & apprentissage"
 
-                        EcoChip:
+                        EcoRow:
                             icon: "remote-desktop"
                             text: "Jessna Remote"
+                            sub: "Contrôle à distance"
 
-                        EcoChip:
+                        EcoRow:
                             icon: "swap-horizontal-circle-outline"
                             text: "Jessna Convert m3u8"
+                            sub: "Liens HLS pour vos diffusions"
+                            current: True
+
+                        EcoRow:
+                            icon: "television-play"
+                            text: "Jessna Title"
+                            sub: "Titres TV pour vMix : programme en cours et à suivre"
+
+                        EcoRow:
+                            icon: "subtitles-outline"
+                            text: "Jessna Bandeau"
+                            sub: "Habillage TV & live pour OBS"
 
                 MDLabel:
                     text: "© 2026 Jessna Tech  ·  Tous droits réservés"
@@ -672,6 +794,7 @@ class MainApp(MDApp):
         self.icon_path = resource_path("logo_jessna_convert_icon.png")
 
     def build(self):
+        splash_step("Préparation de l'écran d'accueil", 80)
         self.title = "Jessna Convert m3u8"
         self.icon = self.icon_path
         self.theme_cls.theme_style = "Dark"
@@ -681,11 +804,17 @@ class MainApp(MDApp):
 
     def on_start(self):
         # Ferme l'écran de démarrage de l'exe (PyInstaller) dès que l'appli est prête
-        try:
-            import pyi_splash
-            pyi_splash.close()
-        except Exception:
-            pass
+        splash_step("Prêt", 100)
+        if _splash_alive():
+            try:
+                pyi_splash.update_text("Prêt !")
+                pyi_splash.close()
+            except Exception:
+                pass
+        # Défilement de la page « À propos » : molette, pavé tactile et clavier.
+        # Branché une image plus tard pour passer AVANT la gestion de la souris de Kivy.
+        Clock.schedule_once(lambda dt: Window.bind(on_mouse_down=self._on_mouse_wheel,
+                                                   on_key_down=self._on_key_scroll), 0)
         # Force le logo dans la barre de titre (au cas où Kivy garde le sien)
         if os.path.exists(self.icon_path):
             Window.set_icon(self.icon_path)
@@ -725,8 +854,41 @@ class MainApp(MDApp):
         if action == "about":
             self.root.transition.direction = "left"
             self.root.current = "about"
+            self.root.ids.about_scroll.scroll_y = 1.0    # toujours ouvrir en haut de la page
         elif action == "quit":
             self.stop()
+
+    # ---------- Défilement de la page « À propos » ----------
+    # La molette est traitée directement au niveau de la fenêtre : aucune carte cliquable
+    # (contacts, liens) ne peut plus la « bloquer ».
+    def _scroll_about(self, delta_dp):
+        sv = self.root.ids.about_scroll
+        vp = sv._viewport
+        if not vp or vp.height <= sv.height:
+            return
+        step = dp(delta_dp) / (vp.height - sv.height)
+        sv.scroll_y = max(0.0, min(1.0, sv.scroll_y + step))
+
+    def _on_mouse_wheel(self, window, x, y, button, modifiers):
+        if self.root.current != "about" or not str(button).startswith("scroll"):
+            return False
+        if button == "scrolldown":      # molette vers le haut (nommage Kivy)
+            self._scroll_about(80)
+        elif button == "scrollup":      # molette vers le bas
+            self._scroll_about(-80)
+        return True
+
+    def _on_key_scroll(self, window, key, scancode, codepoint, modifiers):
+        if self.root.current != "about":
+            return False
+        steps = {273: 80, 274: -80, 280: 400, 281: -400}    # ↑ ↓ Page préc. / suiv.
+        if key in steps:
+            self._scroll_about(steps[key])
+            return True
+        if key in (278, 279):                                # Début / Fin
+            self.root.ids.about_scroll.scroll_y = 1.0 if key == 278 else 0.0
+            return True
+        return False
 
     def go_home(self):
         self.root.transition.direction = "right"
